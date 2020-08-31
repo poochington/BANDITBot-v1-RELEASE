@@ -3,19 +3,16 @@
 #imports
 import discord
 from discord.ext import tasks
-from discord.utils import get
 import configparser
 from datetime import datetime
 import pytz
 from colors import color, red, blue, green, yellow, cyan
 import re
-from re import search
 from bs4 import BeautifulSoup
 import cfscrape
 import os
 import json
 import glob
-import aiomysql
 from tabulate import tabulate
 import traceback
 import requests
@@ -30,7 +27,7 @@ tag_line = "BanditBot v1.0 (Free) - www.scumbandit.com"
 async def main_loop():
     log(blue("Main loop has started."))
     await server_restart_announcement()
-    #await grab_logs()
+    await grab_logs()
     await process_kill_feed()
     await post_admin_logs()
     log(blue("Main loop has ended."))
@@ -380,7 +377,7 @@ async def post_server_info(user):
                 js = re.sub("^<.+?>", "", str(data))
                 js = re.sub("</script>$", "", js)
                 js = json.loads(js)
-                bm_id = url[::-7]
+                bm_id = url[-7::]
                 server_name = js['servers']['servers'][bm_id]['name']
                 online_players = js['servers']['servers'][bm_id]['players']
                 max_players = js['servers']['servers'][bm_id]['maxPlayers']
@@ -390,7 +387,7 @@ async def post_server_info(user):
                 server_status = js['servers']['servers'][bm_id]['status']
 
                 embed = discord.Embed(color=0x0008ff)
-                embed.set_thumbnail(url="http://www.scumbandit.com/weapons/Unknown.png")
+                #embed.set_thumbnail(url="http://www.scumbandit.com/weapons/Unknown.png")
                 embed.add_field(name=server_name, value="\u200b", inline=False)
                 embed.add_field(name="Players", value=f'{online_players} / {max_players}', inline=True)
                 embed.add_field(name="Status", value=server_status, inline=True)
