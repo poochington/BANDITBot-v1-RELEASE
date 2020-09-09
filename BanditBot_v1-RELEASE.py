@@ -144,69 +144,66 @@ async def process_kill_feed():
                     if os.stat(logfile).st_size > 0:
                         if config['DISCORD']['post_killfeed'] == "1":
                             log(cyan("Updating kill feed."))
-                            for count, line in enumerate(f, start=1):
-                                # only process json data lines (every other line)
-                                if count % 2 == 0:
-                                    # simple check to skip the silly version line that is sometimes added into log files
-                                    if len(line) > 50:
-                                        js = line[21::]
-                                        kill_feed = json.loads(js)
-                                        #dont process event kills
-                                        if kill_feed["Killer"]["IsInGameEvent"] == 1:
-                                            log(red("Event kill found, skipping."))
-                                        else:
-                                            killer_name = (kill_feed["Killer"]["ProfileName"])
-                                            killer_id = (kill_feed["Killer"]["UserId"])
-                                            killer_x = float((kill_feed["Killer"]["ServerLocation"]["X"]))
-                                            killer_y = float((kill_feed["Killer"]["ServerLocation"]["Y"]))
-                                            killer_z = float((kill_feed["Killer"]["ServerLocation"]["Z"]))
+                            for line in f:
+                                #select only json data lines
+                                if "IsInGameEvent" in line:
+                                    js = line[21::]
+                                    kill_feed = json.loads(js)
+                                    #dont process event kills
+                                    if kill_feed["Killer"]["IsInGameEvent"] == 1:
+                                        log(red("Event kill found, skipping."))
+                                    else:
+                                        killer_name = (kill_feed["Killer"]["ProfileName"])
+                                        killer_id = (kill_feed["Killer"]["UserId"])
+                                        killer_x = float((kill_feed["Killer"]["ServerLocation"]["X"]))
+                                        killer_y = float((kill_feed["Killer"]["ServerLocation"]["Y"]))
+                                        killer_z = float((kill_feed["Killer"]["ServerLocation"]["Z"]))
 
-                                            victim_name = (kill_feed["Victim"]["ProfileName"])
-                                            victim_id = (kill_feed["Victim"]["UserId"])
-                                            victim_x = float((kill_feed["Victim"]["ServerLocation"]["X"]))
-                                            victim_y = float((kill_feed["Victim"]["ServerLocation"]["Y"]))
-                                            victim_z = float((kill_feed["Victim"]["ServerLocation"]["Z"]))
+                                        victim_name = (kill_feed["Victim"]["ProfileName"])
+                                        victim_id = (kill_feed["Victim"]["UserId"])
+                                        victim_x = float((kill_feed["Victim"]["ServerLocation"]["X"]))
+                                        victim_y = float((kill_feed["Victim"]["ServerLocation"]["Y"]))
+                                        victim_z = float((kill_feed["Victim"]["ServerLocation"]["Z"]))
 
-                                            sector = await get_sector(victim_x, victim_y)
+                                        sector = await get_sector(victim_x, victim_y)
 
-                                            #set weapon name
-                                            weapon = (kill_feed["Weapon"])
-                                            if weapon == "": weapon = "Unknown"
-                                            for weapons in config['WEAPONS']:
-                                                if weapons.lower() in weapon.lower():
-                                                    weapon = config.get("WEAPONS", weapons)
-                                                    break
+                                        #set weapon name
+                                        weapon = (kill_feed["Weapon"])
+                                        if weapon == "": weapon = "Unknown"
+                                        for weapons in config['WEAPONS']:
+                                            if weapons.lower() in weapon.lower():
+                                                weapon = config.get("WEAPONS", weapons)
+                                                break
 
-                                            #set distance
-                                            for mines in config['MINES']:
-                                                if mines.lower() in weapon.lower():
-                                                    distance = 0
-                                                    break
-                                                else:
-                                                    distance = (((victim_x - killer_x) ** 2) + ((victim_y - killer_y) ** 2) + ((victim_z - killer_z) ** 2)) ** (1 / 2) / 100
-                                            distance = int(distance)
+                                        #set distance
+                                        for mines in config['MINES']:
+                                            if mines.lower() in weapon.lower():
+                                                distance = 0
+                                                break
+                                            else:
+                                                distance = (((victim_x - killer_x) ** 2) + ((victim_y - killer_y) ** 2) + ((victim_z - killer_z) ** 2)) ** (1 / 2) / 100
+                                        distance = int(distance)
 
-                                            channel_to_send = bot.get_channel(int(config['DISCORD']['kill_feed_channel']))
+                                        channel_to_send = bot.get_channel(int(config['DISCORD']['kill_feed_channel']))
 
-                                            #send embed to channel
-                                            embed = discord.Embed(title="Kill Confirmation", color=0xff0000)
-                                            #embed.set_thumbnail(url=f"http://www.scumbandit.com/weapons/{WeaponURL}")
-                                            # other details
-                                            embed.add_field(name="**Sector**", value=sector, inline=True)
-                                            embed.add_field(name="**Distance**", value=f"{distance}m", inline=True)
-                                            embed.add_field(name="**Weapon**", value=weapon, inline=True)
-                                            # killer details
-                                            embed.add_field(name="**Killer**", value=killer_name, inline=True)
-                                            # victim details
-                                            embed.add_field(name="**Victim**", value=victim_name, inline=True)
-                                            embed.set_footer(text=f"{tag_line}")
-                                            await channel_to_send.send(embed=embed)
+                                        #send embed to channel
+                                        embed = discord.Embed(title="Kill Confirmation", color=0xff0000)
+                                        #embed.set_thumbnail(url=f"http://www.scumbandit.com/weapons/{WeaponURL}")
+                                        # other details
+                                        embed.add_field(name="**Sector**", value=sector, inline=True)
+                                        embed.add_field(name="**Distance**", value=f"{distance}m", inline=True)
+                                        embed.add_field(name="**Weapon**", value=weapon, inline=True)
+                                        # killer details
+                                        embed.add_field(name="**Killer**", value=killer_name, inline=True)
+                                        # victim details
+                                        embed.add_field(name="**Victim**", value=victim_name, inline=True)
+                                        embed.set_footer(text=f"{tag_line}")
+                                        await channel_to_send.send(embed=embed)
                     f.close()
                     os.remove(logfile)
                 except Exception as e:
                     log(red("Error in post kill feed function."))
                     log(red(e))
-
 
 async def post_admin_logs():
     config = configparser.ConfigParser()
