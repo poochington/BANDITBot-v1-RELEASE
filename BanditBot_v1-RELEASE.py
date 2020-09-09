@@ -205,6 +205,7 @@ async def process_kill_feed():
                     log(red("Error in post kill feed function."))
                     log(red(e))
 
+
 async def post_admin_logs():
     config = configparser.ConfigParser()
     with open('settings.ini', 'r', encoding="utf-8") as ini:
