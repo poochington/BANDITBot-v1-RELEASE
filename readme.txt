@@ -9,7 +9,6 @@ Use this as a guide for setting up your settings.ini file.
 ------------------------------------------------------------------
 
 [SERVER SETTINGS]
-
 Set this to match your scheduled restarts per your GPortal settings:
 restart_schedule = 00:00, 06:00, 12:00, 18:00
 
