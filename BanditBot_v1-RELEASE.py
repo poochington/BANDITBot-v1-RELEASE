@@ -191,14 +191,14 @@ async def process_kill_feed():
                                             #send embed to channel
                                             embed = discord.Embed(title="Kill Confirmation", color=0xff0000)
                                             #embed.set_thumbnail(url=f"http://www.scumbandit.com/weapons/{WeaponURL}")
-                                            # killer details
-                                            embed.add_field(name="**Killer**", value=killer_name, inline=True)
-                                            # victim details
-                                            embed.add_field(name="**Victim**", value=victim_name, inline=True)
                                             # other details
                                             embed.add_field(name="**Sector**", value=sector, inline=True)
                                             embed.add_field(name="**Distance**", value=f"{distance}m", inline=True)
                                             embed.add_field(name="**Weapon**", value=weapon, inline=True)
+                                            # killer details
+                                            embed.add_field(name="**Killer**", value=killer_name, inline=True)
+                                            # victim details
+                                            embed.add_field(name="**Victim**", value=victim_name, inline=True)
                                             embed.set_footer(text=f"{tag_line}")
                                             await channel_to_send.send(embed=embed)
                     f.close()
@@ -336,7 +336,6 @@ async def on_message(message):
     if message.content.startswith('!server'):
         await post_server_info(message.author.id)
         await message.delete()
-
 
 
 #misc commands
