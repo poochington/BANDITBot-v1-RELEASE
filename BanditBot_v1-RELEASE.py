@@ -4,6 +4,7 @@
 import discord
 from discord.ext import tasks
 import configparser
+from configparser import RawConfigParser
 from datetime import datetime
 import pytz
 from colors import color, red, blue, green, yellow, cyan
@@ -13,29 +14,28 @@ import cfscrape
 import os
 import json
 import glob
-from tabulate import tabulate
-import traceback
 import requests
 
 
 #setup
 bot = discord.Client()
-tag_line = "BanditBot v1.0 (Free) - www.scumbandit.com"
+tag_line = "This server is supported by BanditBot v1.0 (Free) - get a copy at www.scumbandit.com"
 
 # main_loop
 @tasks.loop(seconds=62.0)
 async def main_loop():
-    log(blue("Main loop has started."))
+    log(blue(">>> Main loop has started. >>>"))
     await server_restart_announcement()
     await grab_logs()
     await process_kill_feed()
     await post_admin_logs()
-    log(blue("Main loop has ended."))
+    await process_chat_logs()
+    log(blue("<<< Main loop has ended. <<<"))
 
 
 @main_loop.before_loop
 async def before_loop():
-    log(blue("Waiting for bot to be ready."))
+    log(green("Waiting for bot to be ready."))
     await bot.wait_until_ready()
 
 
@@ -61,16 +61,14 @@ async def server_restart_announcement():
                     embed.add_field(name="Scheduled Server Restart Reminder", value=message, inline=False)
                     embed.set_footer(text=f"{tag_line}")
                     await channel_to_send.send(embed=embed)
-                    await channel_to_send.send("@here")
     except Exception as e:
         log(red("Unable to post server restart announcement."))
         log(red(e))
-        traceback.print_exc()
 
 
 async def grab_logs():
     # load ini
-    config = configparser.ConfigParser()
+    config = RawConfigParser()
     with open('settings.ini', 'r', encoding="utf-8") as ini:
         config.read_file(ini)
         server_id = config['GPORTAL']['server_id']
@@ -116,18 +114,11 @@ async def grab_logs():
                 for line in lines:
                     # check name of log file
                     if id == config['GPORTAL'][type + '_file'] and not found:
-                        # compare line to last line downloaded
                         if line == config['GPORTAL'][type + '_line']:
                             found = True
                             continue
                     else:
-                        # add new line to file
                         file.write(line + '\n')
-                        writing = True
-                if writing:
-                    if found:
-                        log(green("Updating {}".format(id)))
-                    else:
                         log(green("Creating {}".format(id)))
                 file.close()
                 config['GPORTAL'][type + '_file'] = id
@@ -135,8 +126,9 @@ async def grab_logs():
             with open('settings.ini', 'w', encoding="utf-8") as update:
                 config.write(update)
                 log(yellow("Download complete."))
-        except:
+        except Exception as e:
             log(red('Failed to obtain logs from Gportal!'))
+            log(red(e))
             pass
 
 
@@ -179,6 +171,7 @@ async def process_kill_feed():
 
                                             #set weapon name
                                             weapon = (kill_feed["Weapon"])
+                                            if weapon == "": weapon = "Unknown"
                                             for weapons in config['WEAPONS']:
                                                 if weapons.lower() in weapon.lower():
                                                     weapon = config.get("WEAPONS", weapons)
@@ -208,8 +201,6 @@ async def process_kill_feed():
                                             embed.add_field(name="**Weapon**", value=weapon, inline=True)
                                             embed.set_footer(text=f"{tag_line}")
                                             await channel_to_send.send(embed=embed)
-                                    else:
-                                        log(red("Skipping line, too short."))
                     f.close()
                     os.remove(logfile)
                 except Exception as e:
@@ -226,7 +217,7 @@ async def post_admin_logs():
                 try:
                     if os.stat(logfile).st_size > 0:
                         if config['DISCORD']['post_admincommands'] == '1':
-                            log(cyan("Pushing admin commands to admin log channel."))
+                            log(cyan("Pushing admin commands to channel."))
                             for line in f:
                                 if len(line) > 50:
                                     date = line[:10:]
@@ -250,6 +241,81 @@ async def post_admin_logs():
                 except Exception as e:
                     log(red("Unable to post admin logs to Discord."))
                     log(red(e))
+
+
+async def process_chat_logs():
+    try:
+        config = configparser.ConfigParser()
+        with open('settings.ini', 'r', encoding="utf-8") as ini:
+            config.read_file(ini)
+            for logfile in glob.glob(config['GPORTAL']['logs_folder'] + '/chat_*.log'):
+                with open(logfile, 'r', encoding='utf8') as f:
+                    if os.stat(logfile).st_size > 0:
+                        log(cyan("Pushing chat logs to channel."))
+                        for line in f:
+                            if len(line) > 50:
+                                date = line[:10:]
+                                time = line[11:19:]
+                                time.replace(".", ":")
+
+                                steam_id = line[22:39:]
+
+                                player_name = line.strip()
+                                player_name = re.sub(r'^.*?\'.*?:', "", player_name)
+                                player_name = re.sub(r'\(.*$', "", player_name)
+
+                                player_id = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', "", line[21::])
+                                player_id = player_id.replace("' ", "").replace("'", " ")
+                                z = len(player_name) + 18
+                                player_id = player_id.replace(player_id[18:int(z):], "")
+                                player_id = player_id[19::]
+                                player_id = re.findall("^.*?\)", player_id)
+                                player_id = player_id[0].replace("(", "").replace(")", "")
+
+                                chat_type = line.strip()
+                                chat_type = re.sub(r'^.*?\'.*?\'.\'', "", chat_type)
+                                chat_type = re.sub(r':.*$', "", chat_type)
+
+                                chat_message = re.sub(r'^.*(\d).\'.\'', "", line)
+                                chat_message = re.sub(r'^.*?:.', "", chat_message)
+                                chat_message = chat_message[:-2:]
+
+                                raid_cmd = str(config['DISCORD']['raid_command'])
+
+                                #raid alarm
+                                if raid_cmd in line:
+                                    if config['DISCORD']['enable_raid_alarm'] == "1":
+                                        channel_to_send = bot.get_channel(int(config['DISCORD']['raid_alert_channel']))
+                                        #raid alarm details
+                                        embed = discord.Embed(title="RAID ALARM", color=0xff0000)
+                                        embed.set_thumbnail(url="http://www.scumbandit.com/weapons/alarm.png")
+                                        embed.add_field(name="**Name**", value=player_name, inline=True)
+                                        embed.add_field(name="**Date**", value=date, inline=True)
+                                        embed.add_field(name="**Time**", value=time, inline=True)
+                                        embed.add_field(name="\u200b", value="\u200b", inline=False)
+                                        embed.set_footer(text=f"{tag_line}")
+                                        await channel_to_send.send(embed=embed)
+                                        await channel_to_send.send("@everyone")
+
+                                #general chat logs
+                                if config['DISCORD']['post_chatlogs'] == "1":
+                                    channel = bot.get_channel(int(config['DISCORD']['chat_logs_channel']))
+                                    if chat_type == "Global":
+                                        await channel.send("```ini\n"
+                                                           f"+[Global Chat] - [{date} @ {time}] - [{player_name}]+\n\n"
+                                                           f"{chat_message}```")
+                                    if chat_type == "Local":
+                                        await channel.send(f"```+[Local Chat] - [{date} @ {time}] - [{player_name}]+\n\n"
+                                                           f"{chat_message}```")
+                                    if chat_type == "Squad":
+                                        await channel.send("```diff\n"
+                                                           f"+[Squad Chat] - [{date} @ {time}] - [{player_name}]+\n\n"
+                                                           f"{chat_message}```")
+                    f.close()
+                    os.remove(logfile)
+    except Exception as e:
+        log(red("Unable to post chat logs."))
+        print(e)
 
 
 #commands section
@@ -316,40 +382,60 @@ async def toggle(setting, channel):
         if "admin commands" in setting:
             if config['DISCORD']['post_admincommands'] == "1":
                 config['DISCORD']['post_admincommands'] = "0"
-                await bot.get_channel(channel).send("```Posting admin commands now disabled.```")
+                await bot.get_channel(channel).send("```> Posting admin commands now disabled.```")
             else:
                 config['DISCORD']['post_admincommands'] = "1"
-                await bot.get_channel(channel).send("```Posting admin commands now enabled.```")
+                await bot.get_channel(channel).send("```> Posting admin commands now enabled.```")
             with open('settings.ini', 'w', encoding="utf-8") as update:
                 config.write(update)
 
         elif "kill feed" in setting:
             if config['DISCORD']['post_killfeed'] == "1":
                 config['DISCORD']['post_killfeed'] = "0"
-                await bot.get_channel(channel).send("```Posting kill feed now disabled.```")
+                await bot.get_channel(channel).send("```> Posting kill feed now disabled.```")
             else:
                 config['DISCORD']['post_killfeed'] = "1"
-                await bot.get_channel(channel).send("```Posting kill feed now enabled.```")
+                await bot.get_channel(channel).send("```> Posting kill feed now enabled.```")
             with open('settings.ini', 'w', encoding="utf-8") as update:
                 config.write(update)
 
         elif "server info" in setting:
             if config['DISCORD']['post_serverinfo'] == "1":
                 config['DISCORD']['post_serverinfo'] = "0"
-                await bot.get_channel(channel).send("```!server command disabled.```")
+                await bot.get_channel(channel).send("```> !server command disabled.```")
             else:
                 config['DISCORD']['post_serverinfo'] = "1"
-                await bot.get_channel(channel).send("```!server command enabled.```")
+                await bot.get_channel(channel).send("```> !server command enabled.```")
             with open('settings.ini', 'w', encoding="utf-8") as update:
                 config.write(update)
 
         elif "restart reminders" in setting:
             if config['DISCORD']['post_serverrestartreminder'] == "1":
                 config['DISCORD']['post_serverrestartreminder'] = "0"
-                await bot.get_channel(channel).send("```Server restart reminders disabled.```")
+                await bot.get_channel(channel).send("```> Server restart reminders disabled.```")
             else:
                 config['DISCORD']['post_serverrestartreminder'] = "1"
-                await bot.get_channel(channel).send("```Server restart reminders enabled.```")
+                await bot.get_channel(channel).send("```> Server restart reminders enabled.```")
+            with open('settings.ini', 'w', encoding="utf-8") as update:
+                config.write(update)
+
+        elif "raid alarm" in setting:
+            if config['DISCORD']['enable_raid_alarm'] == "1":
+                config['DISCORD']['enable_raid_alarm'] = "0"
+                await bot.get_channel(channel).send("```> Server raid alerts disabled.```")
+            else:
+                config['DISCORD']['enable_raid_alarm'] = "1"
+                await bot.get_channel(channel).send("```> Server raid alerts enabled.```")
+            with open('settings.ini', 'w', encoding="utf-8") as update:
+                config.write(update)
+
+        elif "chat logs" in setting:
+            if config['DISCORD']['post_chatlogs'] == "1":
+                config['DISCORD']['post_chatlogs'] = "0"
+                await bot.get_channel(channel).send("```> Posting chat logs disabled.```")
+            else:
+                config['DISCORD']['post_chatlogs'] = "1"
+                await bot.get_channel(channel).send("```> Posting chat logs enabled.```")
             with open('settings.ini', 'w', encoding="utf-8") as update:
                 config.write(update)
 
@@ -360,6 +446,8 @@ async def toggle(setting, channel):
             embed.add_field(name='!toggle kill feed', value="Turn on/off kill feed notifications.", inline=False)
             embed.add_field(name='!toggle server info', value="Turn on/off !server command.", inline=False)
             embed.add_field(name='!toggle restart reminders', value="Turn on/off server scheduled restart reminders.", inline=False)
+            embed.add_field(name='!toggle raid alarm', value="Turn on/off server raid alarm function.", inline=False)
+            embed.add_field(name='!toggle chat logs', value="Turn on/off automatic posting of server chat logs.", inline=False)
             embed.add_field(name="\u200b", value=f"\u200b", inline=False)
             embed.set_footer(text=f"{tag_line}")
             await bot.get_channel(channel).send(embed=embed)
