@@ -6,7 +6,6 @@ from discord.ext import tasks
 import configparser
 from configparser import RawConfigParser
 from datetime import datetime
-import pytz
 from colors import color, red, blue, green, yellow, cyan
 import re
 from bs4 import BeautifulSoup
