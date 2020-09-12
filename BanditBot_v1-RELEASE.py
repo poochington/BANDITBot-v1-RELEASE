@@ -15,22 +15,24 @@ import os
 import json
 import glob
 import requests
+import shutil
 
 
 #setup
 bot = discord.Client()
 tag_line = "This server is supported by BanditBot v1.0 (Free) - get a copy at www.scumbandit.com"
 
+
 # main_loop
 @tasks.loop(seconds=62.0)
 async def main_loop():
     log(blue(">>> Main loop has started. >>>"))
-    await server_restart_announcement()
     await grab_logs()
     await process_kill_feed()
     await post_admin_logs()
     await process_chat_logs()
     log(blue("<<< Main loop has ended. <<<"))
+    await remove_logs()
 
 
 @main_loop.before_loop
@@ -46,26 +48,6 @@ async def on_ready():
 
 
 #main commands
-async def server_restart_announcement():
-    try:
-        config = configparser.ConfigParser()
-        with open('settings.ini', 'r', encoding="utf-8") as ini:
-            config.read_file(ini)
-            if config['DISCORD']['post_serverrestartreminder'] == "1":
-                if await get_local_time() in config['SERVER']['restart_reminder']:
-                    channel_to_send = bot.get_channel(int(config['DISCORD']['server_restart_announcements_channel']))
-                    message = (f"```The server will restart shortly!\n\n"
-                               f"Remember, server restarts are scheduled at {config['SERVER']['restart_schedule']}.```\n")
-                    embed = discord.Embed(title="", color=0xff0000)
-                    embed.set_thumbnail(url=f"http://www.scumbandit.com/weapons/Unknown.png")
-                    embed.add_field(name="Scheduled Server Restart Reminder", value=message, inline=False)
-                    embed.set_footer(text=f"{tag_line}")
-                    await channel_to_send.send(embed=embed)
-    except Exception as e:
-        log(red("Unable to post server restart announcement."))
-        log(red(e))
-
-
 async def grab_logs():
     # load ini
     config = RawConfigParser()
@@ -278,23 +260,6 @@ async def process_chat_logs():
                                 chat_message = re.sub(r'^.*?:.', "", chat_message)
                                 chat_message = chat_message[:-2:]
 
-                                raid_cmd = str(config['DISCORD']['raid_command'])
-
-                                #raid alarm
-                                if raid_cmd in line:
-                                    if config['DISCORD']['enable_raid_alarm'] == "1":
-                                        channel_to_send = bot.get_channel(int(config['DISCORD']['raid_alert_channel']))
-                                        #raid alarm details
-                                        embed = discord.Embed(title="RAID ALARM", color=0xff0000)
-                                        embed.set_thumbnail(url="http://www.scumbandit.com/weapons/alarm.png")
-                                        embed.add_field(name="**Name**", value=player_name, inline=True)
-                                        embed.add_field(name="**Date**", value=date, inline=True)
-                                        embed.add_field(name="**Time**", value=time, inline=True)
-                                        embed.add_field(name="\u200b", value="\u200b", inline=False)
-                                        embed.set_footer(text=f"{tag_line}")
-                                        await channel_to_send.send(embed=embed)
-                                        await channel_to_send.send("@everyone")
-
                                 #general chat logs
                                 if config['DISCORD']['post_chatlogs'] == "1":
                                     channel = bot.get_channel(int(config['DISCORD']['chat_logs_channel']))
@@ -339,17 +304,6 @@ async def on_message(message):
 #misc commands
 def log(text):
     print('[%s] %s' % (datetime.strftime(datetime.now(), '%H:%M:%S'), text))
-
-
-async def get_local_time():
-    config = configparser.ConfigParser()
-    with open('settings.ini', 'r', encoding="utf-8") as ini:
-        config.read_file(ini)
-        specified_local_time = config['SERVER']['timezone']
-        now = datetime.now()
-        full_date_time = datetime.now(pytz.timezone(specified_local_time))
-        time_now = full_date_time.strftime("%H:%M")
-        return time_now
 
 
 def get_token():
@@ -406,26 +360,6 @@ async def toggle(setting, channel):
             with open('settings.ini', 'w', encoding="utf-8") as update:
                 config.write(update)
 
-        elif "restart reminders" in setting:
-            if config['DISCORD']['post_serverrestartreminder'] == "1":
-                config['DISCORD']['post_serverrestartreminder'] = "0"
-                await bot.get_channel(channel).send("```> Server restart reminders disabled.```")
-            else:
-                config['DISCORD']['post_serverrestartreminder'] = "1"
-                await bot.get_channel(channel).send("```> Server restart reminders enabled.```")
-            with open('settings.ini', 'w', encoding="utf-8") as update:
-                config.write(update)
-
-        elif "raid alarm" in setting:
-            if config['DISCORD']['enable_raid_alarm'] == "1":
-                config['DISCORD']['enable_raid_alarm'] = "0"
-                await bot.get_channel(channel).send("```> Server raid alerts disabled.```")
-            else:
-                config['DISCORD']['enable_raid_alarm'] = "1"
-                await bot.get_channel(channel).send("```> Server raid alerts enabled.```")
-            with open('settings.ini', 'w', encoding="utf-8") as update:
-                config.write(update)
-
         elif "chat logs" in setting:
             if config['DISCORD']['post_chatlogs'] == "1":
                 config['DISCORD']['post_chatlogs'] = "0"
@@ -442,8 +376,6 @@ async def toggle(setting, channel):
             embed.add_field(name='!toggle admin commands', value="Turn on/off automatic posting of Admin commands.", inline=False)
             embed.add_field(name='!toggle kill feed', value="Turn on/off kill feed notifications.", inline=False)
             embed.add_field(name='!toggle server info', value="Turn on/off !server command.", inline=False)
-            embed.add_field(name='!toggle restart reminders', value="Turn on/off server scheduled restart reminders.", inline=False)
-            embed.add_field(name='!toggle raid alarm', value="Turn on/off server raid alarm function.", inline=False)
             embed.add_field(name='!toggle chat logs', value="Turn on/off automatic posting of server chat logs.", inline=False)
             embed.add_field(name="\u200b", value=f"\u200b", inline=False)
             embed.set_footer(text=f"{tag_line}")
@@ -483,6 +415,20 @@ async def post_server_info(user):
                 await bot.get_user(user).send(embed=embed)
         else:
             await bot.get_user(user).send(">>> !server command is currently disabled.")
+
+
+async def remove_logs():
+    config = configparser.ConfigParser()
+    with open('settings.ini', 'r', encoding="utf-8") as ini:
+        config.read_file(ini)
+        logs_folder = config['GPORTAL']['logs_folder']
+        if os.path.exists(logs_folder):
+            try:
+                shutil.rmtree(logs_folder)
+            except Exception as e:
+                log(red("Unable to remove logs folder."))
+                print(e)
+
 
 
 bot.run(get_token())
