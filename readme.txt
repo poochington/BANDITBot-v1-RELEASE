@@ -1,5 +1,5 @@
 BANDIT BOT V1 - RELEASE BY POOCHINGTON & SCREECH
-WWW.SCUMBANDIT.COM
+WWW.SCUMBANDIT.COM 
 ------------------------------------------------------------------
 
 Thanks to the few in the Scum and Python communities who have helped us along the way in creating this bot.

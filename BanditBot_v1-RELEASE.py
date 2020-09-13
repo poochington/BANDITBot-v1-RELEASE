@@ -16,7 +16,6 @@ import glob
 import requests
 import shutil
 
-
 #setup
 bot = discord.Client()
 tag_line = "This server is supported by BanditBot v1.0 (Free) - get a copy at www.scumbandit.com"
