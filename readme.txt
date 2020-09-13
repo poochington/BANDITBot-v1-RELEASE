@@ -6,6 +6,18 @@ Thanks to the few in the Scum and Python communities who have helped us along th
 
 Use this as a guide for setting up your settings.ini file.
 
+To set up this Discord bot, you first need to create your own Discord bot on the Discord Developer Portal (https://discord.com/developers). This is a 2 minute process and there are numerous guides available on how to do this on Google if you are unsure. Once you have set up your bot, you need the bot's TOKEN to be able to associate this code with your Bot.
+
+You also need to enable Developer mode in Discord (again, guides are available on Google if you are unsure) to get your "Channel IDs" to set up the [DISCORD SETTINGS] section below. Once Developer mode is enabled in Discord, you simply right-click the channel where you want the Bot to post messages to and select "Copy ID".
+
+Please note, the first time you run this bot it might take a while to catch up "posting things" to Discord, depending on how busy your server has been. Just leave it running, it will catch up.
+
+
+------------------------------------------------------------------
+
+[BANDITBOT]
+token = Your_Discord_Bot_Token_Here
+
 ------------------------------------------------------------------
 
 [DISCORD SETTINGS]
@@ -14,7 +26,7 @@ These toggles can also be changed "on the fly" in discord using the !toggle comm
 0/anything other than 1 = Disabled
 
 post_admincommands = 1 or 0
-admin_logs_channel = Channel ID where you want Admin logs to be posted.
+admin_logs_channel = Channel ID where you want Admin logs to be posted. 
 
 post_killfeed = 1 or 0
 kill_feed_channel = Channel ID where you want Kill Feed to be posted.

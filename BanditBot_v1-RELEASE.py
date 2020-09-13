@@ -110,7 +110,6 @@ async def grab_logs():
         except Exception as e:
             log(red('Failed to obtain logs from Gportal!'))
             log(red(e))
-            pass
 
 
 async def process_kill_feed():
@@ -169,7 +168,7 @@ async def process_kill_feed():
 
                                         #send embed to channel
                                         embed = discord.Embed(title="Kill Confirmation", color=0xff0000)
-                                        #embed.set_thumbnail(url=f"http://www.scumbandit.com/weapons/{WeaponURL}")
+                                        embed.set_thumbnail(url="http://www.scumbandit.com/bandit_bot_logo.png")
                                         # other details
                                         embed.add_field(name="**Sector**", value=sector, inline=True)
                                         embed.add_field(name="**Distance**", value=f"{distance}m", inline=True)
@@ -178,6 +177,8 @@ async def process_kill_feed():
                                         embed.add_field(name="**Killer**", value=killer_name, inline=True)
                                         # victim details
                                         embed.add_field(name="**Victim**", value=victim_name, inline=True)
+                                        embed.add_field(name="\u200b", value=f"\u200b", inline=True)
+                                        embed.add_field(name="\u200b", value=f"\u200b", inline=False)
                                         embed.set_footer(text=f"{tag_line}")
                                         await channel_to_send.send(embed=embed)
                     f.close()
@@ -403,7 +404,7 @@ async def post_server_info(user):
                 server_status = js['servers']['servers'][bm_id]['status']
 
                 embed = discord.Embed(color=0x0008ff)
-                #embed.set_thumbnail(url="http://www.scumbandit.com/weapons/Unknown.png")
+                embed.set_thumbnail(url="http://www.scumbandit.com/bandit_bot_logo.png")
                 embed.add_field(name=server_name, value="\u200b", inline=False)
                 embed.add_field(name="Players", value=f'{online_players} / {max_players}', inline=True)
                 embed.add_field(name="Status", value=server_status, inline=True)
